@@ -1,35 +1,62 @@
-# gohack
+# routineid
 
-[![Build Status](https://github.com/timandy/gohack/actions/workflows/build.yml/badge.svg)](https://github.com/timandy/gohack/actions)
-[![Codecov](https://codecov.io/gh/timandy/gohack/branch/main/graph/badge.svg)](https://app.codecov.io/gh/timandy/gohack)
-[![Go Report Card](https://goreportcard.com/badge/github.com/timandy/gohack)](https://goreportcard.com/report/github.com/timandy/gohack)
-[![License](https://img.shields.io/github/license/timandy/gohack.svg)](https://github.com/timandy/gohack/blob/main/LICENSE)
-
-> [中文版](README_zh.md)
-
-`gohack` provides a design and source code with which you can `read` and `modify` arbitrary fields of the coroutine struct `runtime.g`, even the contents of other structs not exported by the runtime.
-
-# Introduce
-
-`gohack` gets the unexported structure type by looking up the runtime symbol table `typelinks`, which can get the field offset of the struct.
-
-When the fields of other variables of this type are to be read, only the address is obtained through another simplified assembly, which has low overhead, and offsets the address and then reads and writes the content.
-
-This library demonstrates how to get the type `runtime.g` and get the offset of the key field.
-
-Then read the address of the current coroutine structure `runtime.g`, offset the pointer address, and then read and write the fields.
-
-It should be noted that this method has minimal overhead, is compatible with future `go` versions, and supports cross-platform (`386`, `amd64`, `armv6`, `armv7`, `arm64`, `loong64`, `mips`, `mipsle`, `mips64`, `mips64le`, `ppc64`, `ppc64le`, `riscv64`, `s390x`, `wasm`).
+`routineid` help you to get ids of the current go routine and its parent go routine, using implementation from library [gohack](https://github.com/timandy/gohack)
 
 ## Usage
+The library only exposes `func GetRoutineIds() (curRoutineId uint64, parentRoutineId uint64)`
 
-`gohack` does not provide any exposed interface.
+**Example**
+`go_routine_ids_example.go`
+```go
+package main
 
-The goal of `gohack` is to provide an idea and source code implementation.
+import (
+	"fmt"
+	"sync"
 
-If you feel this repository is helpful to you, please [Fork](https://github.com/timandy/gohack/fork) and [Star](https://github.com/timandy/gohack).
+	"github.com/xg0n/routineid"
+)
 
-[routine](https://github.com/timandy/routine) is a `tls` library, powered by `gohack`.
+var wg sync.WaitGroup
+
+func printGoRoutineId(routineName string) {
+	curId, parentId := routineid.GetRoutineIds()
+	fmt.Printf("%4s go routine - current id: %2d, parent id: %3d\n", routineName, curId, parentId)
+}
+
+func main() {
+	printGoRoutineId("main")
+
+	wg.Add(1)
+	go foo()
+
+	/* Wait for all go routines complete */
+	wg.Wait()
+}
+
+func foo() {
+	defer wg.Done()
+	printGoRoutineId("foo")
+
+	wg.Add(1)
+	go bar()
+}
+
+func bar() {
+	defer wg.Done()
+
+	printGoRoutineId("bar")
+}
+```
+
+**Result**:
+
+```shell
+$ go run go_routine_ids_example.go
+main go routine - current id:  1, parent id:   0
+ foo go routine - current id: 18, parent id:   1
+ bar go routine - current id: 19, parent id:  18
+```
 
 # Support Grid
 
