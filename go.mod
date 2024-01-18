@@ -1,4 +1,4 @@
-module github.com/timandy/gohack
+module github.com/xg0n/routineid
 
 go 1.21
 
